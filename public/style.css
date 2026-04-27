@@ -52,6 +52,27 @@ h1 {
     animation: fadeInDown 0.8s ease-out;
 }
 
+/* Timer Display */
+#timer-display {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: #fff;
+    background: linear-gradient(135deg, #6366f1 0%, #a78bfa 100%);
+    padding: 12px 20px;
+    border-radius: 10px;
+    box-shadow: 0 8px 32px rgba(99, 102, 241, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(10px);
+    font-family: "Courier New", monospace;
+    z-index: 1000;
+    min-width: 120px;
+    text-align: center;
+}
+
 @keyframes fadeInDown {
     from {
         opacity: 0;
