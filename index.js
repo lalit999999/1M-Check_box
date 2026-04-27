@@ -2,7 +2,7 @@ import http from 'node:http';
 import path from 'node:path';
 import express from 'express';
 import { Server } from 'socket.io';
-import { connectRedis, subscribeToCheckboxChanges, publishCheckboxChange } from './redis-connection.js';
+import { connectRedis, subscribeToCheckboxChanges, publishCheckboxChange, redis } from './redis-connection.js';
 
 const CHECKBOX_COUNT = 100;
 const state = {
@@ -38,6 +38,8 @@ async function main() {
 
         socket.on('client:checkbox:change', async (data) => {
             console.log(`[Socket:${socket.id}]:client:checkbox:change`, data);
+            // take existing state from reddis and update it with the new change, then publish to redis and broadcast to all clients
+            const existingState = await redis.get('CHECKBOX_STATE');
 
             // Update the in-memory state
             state.checkboxes[data.index] = data.checked;
