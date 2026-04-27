@@ -2,6 +2,7 @@ import http from 'node:http';
 import path from 'node:path';
 import express from 'express';
 import { Server } from 'socket.io';
+import { stat } from 'node:fs';
 
 const CHECKBOX_COUNT = 100;
 
@@ -26,6 +27,7 @@ async function main() {
         socket.on('client:checkbox:change', (data) => {
             console.log(`Received checkbox change from client ${socket.id}:`, data);
             io.emit('server:checkbox:update', { id: socket.id, ...data });
+            state.checkboxes[data.index] = data.checked;
         });
     });
 
