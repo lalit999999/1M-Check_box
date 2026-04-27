@@ -2,14 +2,16 @@ import http from 'node:http';
 import path from 'node:path';
 import express from 'express';
 import { Server } from 'socket.io';
-import { publisher, subscriber , RedisClient } from './redis-connection.js';
+import { publisher, subscriber, RedisClient } from './redis-connection.js';
 
 const CHECKBOX_COUNT = 100;
-const CHECKBOX_STATE = 'checkbox-state';
+const CHECKBOX_STATE_KEY = 'checkbox-state';
 const state = {
     checkboxes: Array(CHECKBOX_COUNT).fill(false),
 }
 
+// rate limiting 
+const rateLimitMap = new Map();
 
 async function main() {
 
@@ -31,10 +33,26 @@ async function main() {
     io.on('connection', (socket) => {
         console.log(`Socket connected`, { id: socket.id });
 
-        socket.on('client:checkbox:change', (data) => {
+        socket.on('client:checkbox:change', async (data) => {
             console.log(`Received checkbox change from client ${socket.id}:`, data);
-            // io.emit('server:checkbox:update', { id: socket.id, ...data });
-            // state.checkboxes[data.index] = data.checked;
+
+            const lastOperationTime = rateLimitMap.get(socket.id);
+            if(lastOperationTime){
+                const timeElepsed = Date.now() - lastOperationTime;
+                if(timeElepsed < 5 * 1000){
+                    console.warn(`Rate limit exceeded for socket ${socket.id}. Ignoring checkbox change.`);
+                    socket.emit('server error : ', { error: 'Rate limit exceeded. Please wait before making another change.' });
+                    return;
+                }
+
+            }else{
+                rateLimitMap.set(socket.id, Date.now());
+            }
+            state.checkboxes[data.index] = data.checked;
+
+            await RedisClient.set(CHECKBOX_STATE_KEY, JSON.stringify(state.checkboxes));
+            io.emit('server:checkbox:update', { id: socket.id, ...data });
+
             publisher.publish('internal-server:checkbox:changes', JSON.stringify({ id: socket.id, ...data }));
         });
     });
@@ -46,8 +64,14 @@ async function main() {
     app.get('/health', (req, res) => {
         res.json({ healthy: true });
     });
-    app.get('/checkboxes', (req, res) => {
-        res.json({ checkboxes: state.checkboxes });
+    app.get('/checkboxes', async (req, res) => {
+        const existingState = await RedisClient.get(CHECKBOX_STATE_KEY);
+        if (existingState) {
+            const remotedata = JSON.parse(existingState);
+            res.json({ checkboxes: remotedata });
+        } else {
+            res.json({ checkboxes: state.checkboxes });
+        }
     });
 
     const port = process.env.PORT ?? 3300;
