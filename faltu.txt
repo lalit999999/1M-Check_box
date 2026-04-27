@@ -1,4 +1,0 @@
-how many no of connection a socket machene can handle ? --- limited
-
-
-websockets are statefull connections
