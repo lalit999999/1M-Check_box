@@ -10,7 +10,6 @@
     <h1>Check Boxes</h1>
     <div id="container"></div>
     <script src="/socket.io/socket.io.js"></script>
-  
 
     <script>
       const socket = io();
@@ -25,15 +24,17 @@
         }
       });
 
-      window.addEventListener("beforeunload", () => {
-        const response = fetch("/checkboxes", { method: "GET" });
-        const data = response.json();
+      window.addEventListener("load", async () => {
+        const response = await fetch("/checkboxes", { method: "GET" });
+        const data = await response.json();
+
         if (data && data.checkboxes) {
-          data.checkboxes.forEach((checked, index) => {
+          data.checkboxes.forEach((serverData, index) => {
             const checkbox = document.createElement("input");
             checkbox.type = "checkbox";
             checkbox.id = `checkbox-${index}`;
             container.appendChild(checkbox);
+            checkbox.checked = serverData;
 
             checkbox.addEventListener("change", (event) => {
               const isChecked = event.target.checked;
@@ -48,7 +49,6 @@
           });
         }
       });
-
     </script>
   </body>
 </html>
