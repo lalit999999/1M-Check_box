@@ -3,6 +3,13 @@ import path from 'node:path';
 import express from 'express';
 import { Server } from 'socket.io';
 
+const CHECKBOX_COUNT = 100;
+
+
+const state = {
+    checkboxes: Array(CHECKBOX_COUNT).fill(false),
+}
+
 
 async function main() {
 
@@ -29,7 +36,9 @@ async function main() {
     app.get('/health', (req, res) => {
         res.json({ healthy: true });
     });
-
+    app.get('/checkboxes', (req, res) => {
+        res.json({ checkboxes: state.checkboxes });
+    });
 
     const port = process.env.PORT ?? 3300;
 
