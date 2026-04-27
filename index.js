@@ -37,17 +37,22 @@ async function main() {
             console.log(`Received checkbox change from client ${socket.id}:`, data);
 
             const lastOperationTime = rateLimitMap.get(socket.id);
-            if(lastOperationTime){
+            console.log(`Last operation time for ${socket.id}:`, lastOperationTime);
+
+            if (lastOperationTime) {
                 const timeElepsed = Date.now() - lastOperationTime;
-                if(timeElepsed < 5 * 1000){
-                    console.warn(`Rate limit exceeded for socket ${socket.id}. Ignoring checkbox change.`);
-                    socket.emit('server error : ', { error: 'Rate limit exceeded. Please wait before making another change.' });
+                console.log(`Time elapsed: ${timeElepsed}ms`);
+
+                if (timeElepsed < 5 * 1000) {
+                    console.warn(`Rate limit exceeded for socket ${socket.id}. Time elapsed: ${timeElepsed}ms (< 5000ms)`);
+                    console.log(`Sending error event to client`);
+                    socket.emit('server:error', { error: 'Rate limit exceeded. Please wait before making another change.' });
                     return;
                 }
-
-            }else{
-                rateLimitMap.set(socket.id, Date.now());
             }
+            rateLimitMap.set(socket.id, Date.now());
+            console.log(`Rate limit time set for ${socket.id}`);
+
             state.checkboxes[data.index] = data.checked;
 
             await RedisClient.set(CHECKBOX_STATE_KEY, JSON.stringify(state.checkboxes));
