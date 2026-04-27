@@ -1,3 +1,0 @@
-npm add socket.io
-
-tell me why it dont show all checkboxes on frontend

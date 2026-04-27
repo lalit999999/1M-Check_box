@@ -43,7 +43,7 @@ async function main() {
                 const timeElepsed = Date.now() - lastOperationTime;
                 console.log(`Time elapsed: ${timeElepsed}ms`);
 
-                if (timeElepsed < 3 * 1000) {
+                if (timeElepsed < 1 * 1000) {
                     console.warn(`Rate limit exceeded for socket ${socket.id}. Time elapsed: ${timeElepsed}ms (< 3000ms)`);
                     console.log(`Sending error event to client`);
                     socket.emit('server:error', { error: 'Rate limit exceeded. Please wait before making another change.' });
