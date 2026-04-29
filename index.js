@@ -2,7 +2,7 @@ import http from 'node:http';
 import path from 'node:path';
 import express from 'express';
 import { Server } from 'socket.io';
-import { publisher, subscriber, RedisClient } from './redis-connection.js';
+import { publisher, subscriber, RedisClient } from './redish/redis-connection.js';
 
 const CHECKBOX_COUNT = 100;
 const CHECKBOX_STATE_KEY = 'checkbox-state';
