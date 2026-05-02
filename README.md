@@ -1,72 +1,186 @@
-# 1M Check_box
+# Nebula CheckGrid
 
-A real-time checkbox synchronization app built with Node.js, Express, Socket.IO, and Redis-compatible storage. The app renders 100 checkboxes in the browser and syncs changes instantly across connected clients.
+A real-time collaborative checkbox app built with **Node.js, Express, Socket.IO, Redis, and Google OAuth 2.0**.
 
-## Overview
+It lets authenticated users toggle checkboxes in real time, while anonymous users can open the app in **read-only mode**.
 
-This project demonstrates:
+---
 
-- real-time communication with Socket.IO
-- shared state persistence with Redis/Valkey
-- Pub/Sub messaging for multi-instance syncing
-- a simple frontend built with plain HTML, CSS, and JavaScript
+## Live Demo
 
-## Features
+- **Live App:** https://onem-check-box.onrender.com/
+- **GitHub Repository:** _add your repo link here_
+- **Demo Video:** _add your YouTube unlisted link here_
 
-- 100 checkboxes rendered on page load
-- instant sync across all connected clients
-- Redis persistence for checkbox state
-- Pub/Sub broadcasting between server instances
-- server-side rate limiting
-- `/health` and `/checkboxes` HTTP endpoints
-- clean, dependency-light frontend
+---
+
+## What This Project Does
+
+Nebula CheckGrid is inspired by the "1 Million Checkboxes" idea, but built as a practical full-stack real-time app for learning and evaluation.
+
+### Main features
+
+- Google login using OAuth 2.0
+- Session-based authentication
+- Auth-protected HTTP routes
+- Auth-protected WebSocket updates
+- Redis-backed checkbox state storage
+- Redis Pub/Sub for scalable broadcasts
+- Custom rate limiting using Redis TTL
+- Read-only mode for anonymous visitors
+- Responsive, modern UI
+
+---
 
 ## Tech Stack
 
-| Layer       | Technology                    |
-| ----------- | ----------------------------- |
-| Backend     | Node.js, Express              |
-| Real-time   | Socket.IO                     |
-| Storage     | Redis / Valkey via ioredis    |
-| Frontend    | HTML, CSS, Vanilla JavaScript |
-| Development | Nodemon                       |
+### Frontend
+
+- HTML
+- CSS
+- JavaScript
+
+### Backend
+
+- Node.js
+- Express
+- Socket.IO
+- Passport.js
+- express-session
+
+### Data & Infra
+
+- Redis / Valkey
+- Redis Pub/Sub
+- connect-redis
+- Google OAuth 2.0
+
+---
 
 ## Project Structure
 
-```text
-1Mcheck_box/
-├── index.js
-├── package.json
-├── package-lock.json
-├── docker-compose.yml
-├── .env
-├── .env.example
-├── .gitignore
-├── README.md
-├── public/
-│   ├── index.html
-│   ├── clientjs.js
-│   └── style.css
-└── redish/
-    └── redis-connection.js
-```
-
-## Prerequisites
-
-Install the following before running the project:
-
-- Node.js 16 or newer
-- npm
-- Redis or Valkey running on port `6379`
-
-Check your versions:
-
 ```bash
-node --version
-npm --version
+.
+├── index.js
+├── API/
+│   ├── auth/
+│   │   ├── middleware.js
+│   │   └── routes.js
+│   ├── config/
+│   │   ├── passport.js
+│   │   ├── rateLimiter.js
+│   │   ├── session.js
+│   │   └── sessionManager.js
+│   └── redish/
+│       └── redis-connection.js
+├── public/
+│   ├── clientjs.js
+│   ├── index.html
+│   ├── login.html
+│   └── style.css
+├── .env.example
+└── docker-compose.yml
 ```
 
-## Setup
+---
+
+## How It Works
+
+### 1) Authentication
+
+- User clicks **Sign in with Google**
+- Passport handles Google OAuth 2.0 login
+- On success, the user session is stored in Redis using `express-session` + `connect-redis`
+- The session is available to both HTTP routes and Socket.IO connections
+
+### 2) Checkbox State
+
+- Checkbox state is stored in Redis as a shared source of truth
+- When a checkbox changes, the server updates Redis and broadcasts the update to all connected clients
+- Redis Pub/Sub helps the app stay ready for horizontal scaling later
+
+### 3) WebSockets
+
+- Socket.IO keeps the UI in sync in real time
+- Authenticated users can send checkbox change events
+- Anonymous users can connect, see updates, but cannot change boxes
+
+### 4) Rate Limiting
+
+- Rate limiting is implemented manually
+- Redis stores counters with TTL
+- HTTP requests and WebSocket checkbox updates are both protected
+- This prevents spam clicks and abusive traffic
+
+---
+
+## Authentication Flow
+
+1. User opens the app
+2. If not logged in, they can go to `/login.html`
+3. Clicking Google sign-in starts OAuth login
+4. Google redirects to the callback URL
+5. The app creates a session and stores user info in Redis
+6. The app loads the checkbox grid with full access for logged-in users
+
+---
+
+## Read-Only Mode
+
+Anonymous users are allowed to:
+
+- view the checkbox grid
+- receive live updates
+
+Anonymous users cannot:
+
+- toggle checkboxes
+- send checkbox update events
+
+This keeps the app usable for visitors while still protecting write access.
+
+---
+
+## Rate Limiting Logic
+
+The app uses Redis keys with TTL to track request frequency.
+
+### Strategy
+
+- **Authenticated users:** rate limited by user ID
+- **Anonymous users:** rate limited by IP address or socket ID
+- **HTTP routes:** limited separately from WebSocket events
+- **WebSocket checkbox updates:** one update per short time window
+
+### Why this helps
+
+- prevents spam clicks
+- reduces abuse
+- avoids unnecessary write load on Redis and Socket.IO
+
+---
+
+## Environment Variables
+
+Create a `.env` file with values like these:
+
+```env
+REDIS_CONNECT_URL=redis://localhost:6379
+PORT=3301
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+GOOGLE_CALLBACK_URL=http://localhost:3301/auth/google/callback
+SESSION_SECRET=your-session-secret-key
+NODE_ENV=development
+```
+
+### Important
+
+Make sure `GOOGLE_CALLBACK_URL` matches the same port your app is running on.
+
+---
+
+## How to Run Locally
 
 ### 1. Install dependencies
 
@@ -74,127 +188,135 @@ npm --version
 npm install
 ```
 
-### 2. Create your environment file
+### 2. Start Redis
 
-```bash
-cp .env.example .env
-```
-
-Then set the Redis connection string and, optionally, the port:
-
-```env
-REDIS_CONNECT_URL=redis://localhost:6379
-PORT=3300
-```
-
-> If `PORT` is not set, the server falls back to `3300`.
-
-### 3. Start Redis / Valkey
-
-You can run it locally or with Docker:
-
-```bash
-redis-server
-```
-
-or
+You can use Docker:
 
 ```bash
 docker compose up -d
 ```
 
-## Run the app
-
-### Development mode
-
-```bash
-npm run dev
-```
-
-### Production mode
+### 3. Start the app
 
 ```bash
 npm start
 ```
 
-Open the app in your browser:
+### 4. Open in browser
 
-```text
-http://localhost:3300
-```
+- App: `http://localhost:3301`
+- Login page: `http://localhost:3301/login.html`
 
-If you changed `PORT`, use that value instead.
+---
 
-## How it works
+## How to Test
 
-1. The browser loads `public/index.html`.
-2. `clientjs.js` requests the current checkbox state from `GET /checkboxes`.
-3. When a checkbox changes, the client emits `client:checkbox:change`.
-4. The server updates in-memory state and saves it to Redis.
-5. The server broadcasts `server:checkbox:update` to all connected clients.
-6. A Redis Pub/Sub message keeps other server instances in sync.
+### Auth flow
 
-## API
+- Open `/login.html`
+- Click **Sign in with Google**
+- Complete Google login
+- You should return to the app as an authenticated user
 
-### HTTP endpoints
+### Checkbox sync
 
-| Method | Route         | Description                        |
-| ------ | ------------- | ---------------------------------- |
-| `GET`  | `/health`     | Returns `{ healthy: true }`        |
-| `GET`  | `/checkboxes` | Returns the current checkbox array |
+- Open the app in two browser windows
+- Toggle a checkbox in one window
+- The other window should update instantly
 
-### Socket.IO events
+### Read-only mode
 
-| Direction       | Event                    | Payload                  | Purpose                          |
-| --------------- | ------------------------ | ------------------------ | -------------------------------- |
-| Client → Server | `client:checkbox:change` | `{ index, checked }`     | Update a checkbox                |
-| Server → Client | `server:checkbox:update` | `{ id, index, checked }` | Broadcast a state change         |
-| Server → Client | `server:error`           | `{ error }`              | Show rate-limit or server errors |
+- Open the app in an incognito window
+- You should be able to view the grid
+- You should not be able to toggle checkboxes
 
-### Redis / Pub/Sub
+### Rate limiting
 
-| Item            | Value                              |
-| --------------- | ---------------------------------- |
-| State key       | `checkbox-state`                   |
-| Pub/Sub channel | `internal-server:checkbox:changes` |
+- Click a checkbox repeatedly very fast
+- The app should block spammy updates with a rate limit message
 
-## Current behavior
+---
 
-- The server initializes **100** checkboxes.
-- Checkbox state is stored in Redis under `checkbox-state`.
-- Rate limiting blocks repeated changes from the same socket if they happen within **1 second**.
-- The frontend displays a live timer and error alerts.
+## Key Implementation Notes
 
-## Troubleshooting
+### HTTP routes
 
-### Redis connection errors
+- `/health` for basic server status
+- `/checkboxes` for authenticated access
+- `/api/checkboxes/view` for public read-only access
 
-If the app logs connection problems, make sure Redis/Valkey is running and `REDIS_CONNECT_URL` is correct.
+### Socket events
 
-### Empty checkbox list
+- `client:checkbox:change` from browser to server
+- `server:checkbox:update` from server to all clients
+- `server:user-info` tells the browser if it is authenticated or read-only
 
-Check that:
+### Redis usage
 
-- the server is running
-- `/checkboxes` returns data
-- the browser can load `/socket.io/socket.io.js`
+- checkbox state storage
+- session storage
+- rate limit counters
+- Pub/Sub message broadcasting
 
-### Port already in use
+---
 
-If the server fails to start, another process may already be using the selected port.
+## What I Learned
 
-### State not syncing
+This project taught me a lot about how real-time apps are built beyond just "sending messages over sockets".
 
-Make sure all clients are connected to the same running server and that Redis Pub/Sub is available.
+### Main learnings
+
+- **Authentication matters early**: protecting sockets and routes is part of the core design, not an afterthought.
+- **Sessions must be shared**: if HTTP and WebSockets both need user identity, the session strategy must work across both.
+- **Redis is more than a cache**: it can store app state, sessions, counters, and Pub/Sub messages.
+- **Rate limiting should be intentional**: using TTL and counters gives simple, reliable abuse protection.
+- **Read-only fallback improves UX**: anonymous users can still explore the app instead of hitting a dead end.
+- **Clean structure helps debugging**: splitting auth, session, rate limiting, and socket logic makes the system much easier to maintain.
+
+---
+
+## Future Improvements
+
+If I had more time, I would add:
+
+- persistent user activity logs
+- optimistic UI updates
+- better loading states for the grid
+- admin dashboard for live usage stats
+- stronger distributed rate limiting logic
+- support for a larger checkbox dataset
+
+---
+
+## Developer
+
+**Lalit Gujar**  
+LinkedIn: https://www.linkedin.com/in/lalitgujar
+
+---
+
+## Submission Checklist
+
+- [x] Real-time checkbox sync
+- [x] Google OAuth login
+- [x] Redis state storage
+- [x] Redis Pub/Sub integration
+- [x] Custom rate limiting
+- [x] Anonymous read-only mode
+- [x] Responsive frontend
+- [x] Clear README
+
+---
 
 ## Notes
 
-- This project uses plain HTML and JavaScript rather than a frontend framework.
-- Redis connection files are kept inside the `redish/` folder.
-- `docker-compose.yml` starts a Valkey container for local development.
+This app is intentionally built as a learning-focused real-time system. It is not production-perfect, but it demonstrates the core ideas of:
 
-## License
+- auth
+- sessions
+- sockets
+- Redis
+- rate limiting
+- user experience
 
-This project is for educational use.
-
-Happy coding... 🙏
+and it does them without too much drama. Which, in software, is already a small victory.
