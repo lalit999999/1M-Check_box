@@ -23,8 +23,16 @@ router.get('/google/callback',
                 console.log(`[Auth] Session established for user ${user.email}`);
             }
 
-            // Successful authentication, redirect to home
-            res.redirect('/?auth=success');
+            // Make sure the session is persisted before redirecting back home.
+            req.session.save((saveErr) => {
+                if (saveErr) {
+                    console.error('[Auth] Session save error:', saveErr.message || saveErr);
+                    return res.redirect('/?auth=failed');
+                }
+
+                // Successful authentication, redirect to home
+                res.redirect('/?auth=success');
+            });
         } catch (err) {
             console.error('[Auth] Error in callback:', err.message || err);
             res.redirect('/?auth=failed');
