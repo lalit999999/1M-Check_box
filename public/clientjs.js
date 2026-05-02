@@ -39,6 +39,10 @@ function showErrorAlert(message) {
 
 // Function to show read-only mode banner
 function showReadOnlyBanner() {
+    if (document.querySelector(".readonly-banner")) {
+        return;
+    }
+
     const banner = document.createElement("div");
     banner.className = "readonly-banner";
     banner.innerHTML = `
@@ -104,6 +108,23 @@ window.addEventListener("load", async () => {
     }
 
     try {
+        // Resolve auth/read-only state first to avoid race with socket event timing
+        const meResponse = await fetch("/auth/me", { method: "GET" });
+        if (meResponse.ok) {
+            const meData = await meResponse.json();
+            isAuthenticated = !!meData.authenticated;
+            isReadOnly = !isAuthenticated;
+            userData = meData.user || null;
+        } else {
+            isAuthenticated = false;
+            isReadOnly = true;
+            userData = null;
+        }
+
+        if (isReadOnly) {
+            showReadOnlyBanner();
+        }
+
         // Try authenticated endpoint first, fall back to public endpoint
         let response = await fetch("/checkboxes", { method: "GET" });
 

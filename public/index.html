@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="stylesheet" href="style.css" />
-    <title>1M Check_box - OAuth Login</title>
+    <title>Nebula CheckGrid — Real-time Collaborative Canvas</title>
   </head>
   <body>
     <!-- Note: login UI moved to /login.html -->
@@ -12,9 +12,15 @@
     <!-- Main App Section -->
     <div id="app-container" style="display: none">
       <div class="top-bar">
-        <h1>Check Boxes</h1>
+        <div>
+          <h1>Nebula CheckGrid</h1>
+          <p class="project-tagline">
+            Realtime checkbox universe · synced instantly
+          </p>
+        </div>
         <div class="user-info">
           <span id="user-name"></span>
+          <a href="/login.html" id="login-btn" class="logout-btn">Login</a>
           <a href="/auth/logout" class="logout-btn">Logout</a>
         </div>
       </div>
@@ -22,7 +28,7 @@
       <div class="main-wrapper">
         <div id="container"></div>
         <div id="project-summary">
-          <h2>Summary</h2>
+          <h2>Project Overview</h2>
           <div class="summary-content">
             <div class="summary-section">
               <h3>📌 What is This?</h3>
@@ -39,7 +45,7 @@
                 <li>Real-time sync via Socket.IO</li>
                 <li>Redis state persistence</li>
                 <li>Rate limiting (1 sec cooldown)</li>
-                <li>Live timer display</li>
+                <li>Read-only mode for guest users</li>
                 <li>Error notifications</li>
                 <li>Responsive design</li>
               </ul>
@@ -87,7 +93,6 @@
           </div>
         </div>
       </div>
-      <div id="timer-display">00:00:00</div>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
@@ -99,16 +104,25 @@
           const response = await fetch("/auth/me");
           const data = await response.json();
 
+          const appContainer = document.getElementById("app-container");
+          const userNameEl = document.getElementById("user-name");
+          const loginBtn = document.getElementById("login-btn");
+          const logoutBtn = document.querySelector('a[href="/auth/logout"]');
+
+          // Always show app (anonymous users get read-only mode)
+          appContainer.style.display = "block";
+
           if (data.authenticated && data.user) {
-            // Show app for authenticated users
-            document.getElementById("app-container").style.display = "block";
-            document.getElementById("user-name").textContent =
-              `Hello, ${data.user.name}`;
-            initializeApp();
+            userNameEl.textContent = `Hello, ${data.user.name || data.user.email || "User"}`;
+            if (loginBtn) loginBtn.style.display = "none";
+            if (logoutBtn) logoutBtn.style.display = "inline-flex";
           } else {
-            // Redirect unauthenticated users to separate login page
-            window.location.href = "/login.html";
+            userNameEl.textContent = "Guest (Read-Only)";
+            if (loginBtn) loginBtn.style.display = "inline-flex";
+            if (logoutBtn) logoutBtn.style.display = "none";
           }
+
+          initializeApp();
 
           // Check for auth status from URL callback
           const urlParams = new URLSearchParams(window.location.search);
@@ -117,31 +131,22 @@
           }
         } catch (err) {
           console.error("Error checking auth status:", err);
-          // If auth check fails, redirect to login page
-          window.location.href = "/login.html";
+          // On auth check failure, still allow app in read-only mode
+          const appContainer = document.getElementById("app-container");
+          const userNameEl = document.getElementById("user-name");
+          const loginBtn = document.getElementById("login-btn");
+          const logoutBtn = document.querySelector('a[href="/auth/logout"]');
+
+          appContainer.style.display = "block";
+          userNameEl.textContent = "Guest (Read-Only)";
+          if (loginBtn) loginBtn.style.display = "inline-flex";
+          if (logoutBtn) logoutBtn.style.display = "none";
+          initializeApp();
         }
-      }
-
-      // Timer display functionality
-      function updateTimer() {
-        const now = new Date();
-        const hours = String(now.getHours()).padStart(2, "0");
-        const minutes = String(now.getMinutes()).padStart(2, "0");
-        const seconds = String(now.getSeconds()).padStart(2, "0");
-
-        const timeString = `${hours}:${minutes}:${seconds}`;
-        document.getElementById("timer-display").textContent = timeString;
-      }
-
-      // Initialize timer
-      function startTimer() {
-        updateTimer();
-        setInterval(updateTimer, 1000);
       }
 
       // Initialize app
       function initializeApp() {
-        startTimer();
         window.appReady = true;
       }
 

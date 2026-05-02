@@ -168,3 +168,65 @@ Make sure the project runs properly before submission. Broken setup, missing .en
 
 
 
+Rider Location Tracking — Real-Time Application with Kafka
+Overview
+
+A production-grade real-time rider location tracking application demonstrating message-driven architecture with Kafka, Socket.IO WebSocket communication, MongoDB persistence, and Leaflet map visualization.
+Key Implementation Details
+
+Kafka Integration
+
+    Producer sends location events to location-updates topic
+    Separate consumer (api/kafka/database-processor.js) persists to MongoDB
+    Consumer groups for load balancing and fault tolerance
+    Supports TLS/SASL/mTLS for managed Kafka providers (Aiven)
+
+WebSocket & Real-Time
+
+    Socket.IO server broadcasts location updates to all connected clients
+    Socket authenticated via Passport Google OAuth
+    Live marker updates with <5s latency
+
+Database & Persistence
+
+    MongoDB LocationEvent model with TTL index (configurable, default 30 days)
+    Consumer pattern: Kafka → DB write (decoupled from socket path)
+    Secured /api/locations endpoint (authenticated users only)
+
+OAuth & Authentication
+
+    Passport Google OAuth 2.0 integration
+    express-session + connect-mongo for session persistence
+    User identity tied to location events
+
+Frontend
+
+    Leaflet map with responsive mobile UX
+    Geolocation via watchPosition (avoids repeated permission prompts)
+    Real-time marker rendering and updates
+
+Code Quality & Setup
+
+    Clean modular structure: api/, public/, scripts/
+    Environment-driven config (no hardcoded secrets)
+    Comprehensive error handling
+    Complete README and SUBMISSION.md with testing guides
+
+Testing & Verification
+
+    Automated integration test: npm run integration-test (produces → MongoDB assertion)
+    Manual multi-client verification (two browsers, real-time sync)
+    TTL index verification in MongoDB
+
+Quick Links
+
+    Repository: https://github.com/lalit999999/realtime-rider-location-tracting-application
+    Main README: /README.md (setup, architecture, learnings)
+    Submission Guide: /SUBMISSION.md (full testing checklist, links, rubric mapping)
+    Code: index.js (server), api/kafka/database-processor.js (consumer), public/index.html (frontend)
+
+How to Test
+
+npm install
+docker compose up -d
+npm start & npm run processor & npm run integration-test
