@@ -24,24 +24,21 @@ passport.use(new GoogleOAuth2Strategy(
 
 /**
  * Serialize user to session
- * Stores only user ID in the session to keep it lean
+ * Store user object in session for this project so UI can directly use
+ * name/email/picture from req.user after refresh and OAuth callback.
  */
 passport.serializeUser((user, done) => {
     console.log(`[Passport] Serializing user: ${user.email}`);
-    // Store only the essential user ID in the session
-    done(null, user.id);
+    done(null, user);
 });
 
 /**
  * Deserialize user from session
- * In a production app, you would fetch user from database here.
- * For this project, user object is stored in session already.
+ * For this project, user object is already in session.
  */
-passport.deserializeUser((userId, done) => {
-    console.log(`[Passport] Deserializing user: ${userId}`);
-    // In this implementation, the full user object is restored from session data
-    // In production, you would query a database here: User.findById(userId)
-    done(null, { id: userId });
+passport.deserializeUser((user, done) => {
+    console.log(`[Passport] Deserializing user: ${user?.email || user?.id || 'unknown'}`);
+    done(null, user);
 });
 
 export default passport;
