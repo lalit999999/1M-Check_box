@@ -1,0 +1,205 @@
+
+Card background
+1 Million Checkboxes
+
+Web Dev Cohort 2026
+
+Full Stack
+Timeline
+Start: Apr 29, 2026, 11:00 AM
+Due: May 3, 2026, 11:59 PM
+Eval Begins: May 4, 2026, 12:30 AM
+Eval Ends: May 6, 2026, 11:59 PM
+Instructions
+
+In this project, you have to build a real-time web application where users can interact with a large grid of checkboxes.
+
+The core idea is inspired by the “1 Million Checkboxes” concept, but here you will build it from scratch using your own backend, WebSocket layer, Redis coordination and custom rate limiting.
+
+The frontend can be built using:
+
+    HTML
+
+    CSS
+
+    JavaScript
+
+The backend must be built using:
+
+    Node.js
+
+    Express
+
+    WebSockets
+
+    Redis
+
+Your application should allow users to see a large number of checkboxes and toggle them. When one user changes the state of a checkbox, the change should be reflected for other connected users in real time using WebSockets.
+
+You also need to think about scale. This is not just about rendering checkboxes on screen. You should think about how the backend handles many users, how socket connections are managed, how checkbox state is stored, and how updates are broadcast efficiently.
+
+Your system should include:
+
+    A frontend grid of checkboxes
+
+    WebSocket connection between client and server
+
+    Backend in Express
+
+    Redis for storing or coordinating checkbox state
+
+    Redis Pub/Sub for broadcasting updates across server instances
+
+    Custom rate limiting without using external rate-limit packages
+
+    OIDC / OAuth 2.0 based authentication server
+
+    Logged-in users should be able to interact with the system
+
+    Anonymous users can be restricted or given read-only access, depending on your design
+
+    Proper handling of socket IDs and connected users
+
+    Efficient checkbox update flow
+
+    Basic protection against spam clicks or abuse
+
+    Clean project structure and readable code
+
+You are expected to implement rate limiting yourself. Do not use packages like express-rate-limit. You can use Redis, IP address, user ID, socket ID, time windows, counters, expiry and your own logic to build it.
+
+Think about questions like:
+
+    How will 1 million checkbox states be stored?
+
+    Will you store each checkbox separately or use a compact structure?
+
+    How will the server know which checkbox changed?
+
+    How will other users receive updates?
+
+    What happens if multiple users toggle the same checkbox?
+
+    How will Redis Pub/Sub help if there are multiple backend servers?
+
+    How will rate limiting work for HTTP APIs and WebSocket events?
+
+    How will authentication work before allowing socket actions?
+
+    How will you prevent one user from spamming too many checkbox changes?
+
+    How will the frontend avoid rendering everything badly?
+
+    How will the app behave if a user refreshes the page?
+
+You do not need to make this production-perfect, but your system should clearly show that you understand real-time communication, state management, Redis, rate limiting and authentication flow.
+Submission Instructions
+
+Your submission must include:
+
+    Public GitHub repository link
+
+    Live deployed link (if possible)
+
+    YouTube unlisted demo video link
+
+    Clear README file
+
+Demo video is compulsory.
+
+DO NOT submit Google Drive links for the video. Upload the working demo on YouTube as an unlisted video and submit that link.
+
+Your demo video should show:
+
+    Login / authentication flow
+
+    Checkbox grid loading
+
+    Checkbox toggle working
+
+    Real-time update between two browser windows or two users
+
+Your GitHub README should include:
+
+    Project overview
+
+    Tech stack
+
+    Features implemented
+
+    How to run locally
+
+    Environment variables required
+
+    Redis setup instructions
+
+    Auth flow explanation
+
+    WebSocket flow explanation
+
+    Rate limiting logic explanation
+
+    Screenshots or demo link
+
+Make sure the project runs properly before submission. Broken setup, missing .env.example, unclear README or non-working demo will affect evaluation.
+
+
+
+
+
+
+1. Implement OAuth2/OIDC authentication (most critical)
+-- Step 1: Choose an OIDC provider (e.g., which is Oauth 2.0 (login with google only))
+-- Step 2: Set up the OIDC provider and create a client application
+-- Step 3: Implement the authentication flow in your Express backend
+-- Step 4: Handle the callback from the OIDC provider and create a session for the authenticated user
+-- Step 5: Protect your WebSocket and HTTP endpoints to require authentication
+
+
+
+
+
+2. Add middleware to protect WebSocket and HTTP endpoints
+-- Step 1: Create an authentication middleware function that checks if the user is authenticated
+-- Step 2: Use this middleware in your Express routes to protect HTTP endpoints
+-- Step 3: Integrate the authentication middleware with your WebSocket server to protect WebSocket connections
+-- Step 4: Ensure that only authenticated users can send and receive WebSocket messages related to checkbox updates
+-- Step 5: Test the protected endpoints to confirm that unauthenticated users
+
+
+
+3. Implement user session management
+-- Step 1: Choose a session management strategy (e.g., using express-session with Redis store)
+-- Step 2: Set up session management in your Express backend
+-- Step 3: Store user information in the session after successful authentication
+-- Step 4: Ensure that session information is accessible in your WebSocket server to identify the user associated with each WebSocket connection
+-- Step 5: Implement session expiration and cleanup logic to manage user sessions effectively
+
+
+
+
+
+
+
+
+
+
+
+4. Move rate limiting to Redis with proper TTL
+-- Step 1: Design a rate limiting strategy (e.g., using a combination of user ID, IP address, and time windows)
+-- Step 2: Implement the rate limiting logic in your Express middleware, using Redis to store rate limit counters and TTL (Time To Live) for each user or IP address
+-- Step 3: Integrate the rate limiting middleware into your Express routes to protect HTTP endpoints
+-- Step 4: Extend the rate limiting logic to also apply to WebSocket events, ensuring that users cannot spam checkbox updates
+-- Step 5: Test the rate limiting functionality to confirm that it correctly limits the number of requests or events from users while allowing legitimate interactions  
+
+
+
+
+
+5. Add read-only mode for anonymous users
+-- Step 1: Define the access levels for authenticated and anonymous users (e.g., authenticated users can toggle checkboxes, while anonymous users can only view the grid)
+-- Step 2: Implement logic in your Express backend to differentiate between authenticated and anonymous users based on the session or authentication status
+-- Step 3: Modify your WebSocket server to check the user's authentication status before allowing them to send checkbox toggle events
+-- Step 4: Update the frontend to reflect the different access levels, such as disabling checkbox toggling for anonymous users and providing a visual indication of read-only mode
+-- Step 5: Test the application to ensure that anonymous users can view the checkbox grid but cannot toggle any checkboxes, while authenticated users have full access to interact with the grid.   
+

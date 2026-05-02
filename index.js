@@ -1,8 +1,13 @@
+import 'dotenv/config';
 import http from 'node:http';
 import path from 'node:path';
 import express from 'express';
 import { Server } from 'socket.io';
 import { publisher, subscriber, RedisClient } from './redish/redis-connection.js';
+import { sessionMiddleware } from './API/config/session.js';
+import passport from './API/config/passport.js';
+import authRoutes from './API/auth/routes.js';
+import { isAuthenticated } from './API/auth/middleware.js';
 
 const CHECKBOX_COUNT = 100;
 const CHECKBOX_STATE_KEY = 'checkbox-state';
@@ -18,9 +23,26 @@ async function main() {
     const app = express();
     const server = http.createServer(app);
 
+    // Session middleware
+    app.use(sessionMiddleware);
 
-    const io = new Server();
-    io.attach(server);
+    // Passport middleware
+    app.use(passport.initialize());
+    app.use(passport.session());
+
+    // Socket.IO with session support
+    const io = new Server(server, {
+        serveClient: true,
+        cors: {
+            origin: '*',
+            methods: ['GET', 'POST']
+        }
+    });
+
+    // Middleware for socket.io to share sessions
+    io.use((socket, next) => {
+        sessionMiddleware(socket.request, socket.request.res || {}, next);
+    });
     await subscriber.subscribe('internal-server:checkbox:changes');
     subscriber.on('message', (channel, message) => {
         if (channel === 'internal-server:checkbox:changes') {
@@ -31,51 +53,79 @@ async function main() {
         }
     });
     io.on('connection', (socket) => {
-        console.log(`Socket connected`, { id: socket.id });
+        const user = socket.request.user;
+        console.log(`Socket connected`, { id: socket.id, authenticated: !!user, userId: user?.id });
 
+        // Check authentication for WebSocket events
         socket.on('client:checkbox:change', async (data) => {
-            console.log(`Received checkbox change from client ${socket.id}:`, data);
+            // Only authenticated users can change checkboxes
+            if (!user) {
+                socket.emit('server:error', { error: 'You must be logged in to modify checkboxes.' });
+                return;
+            }
 
-            const lastOperationTime = rateLimitMap.get(socket.id);
-            console.log(`Last operation time for ${socket.id}:`, lastOperationTime);
+            console.log(`Received checkbox change from user ${user.email} (socket: ${socket.id}):`, data);
+
+            const rateLimitKey = `rate-limit:${user.id}`;
+            const lastOperationTime = rateLimitMap.get(rateLimitKey);
+            console.log(`Last operation time for ${rateLimitKey}:`, lastOperationTime);
 
             if (lastOperationTime) {
-                const timeElepsed = Date.now() - lastOperationTime;
-                console.log(`Time elapsed: ${timeElepsed}ms`);
+                const timeElapsed = Date.now() - lastOperationTime;
+                console.log(`Time elapsed: ${timeElapsed}ms`);
 
-                if (timeElepsed < 1 * 1000) {
-                    console.warn(`Rate limit exceeded for socket ${socket.id}. Time elapsed: ${timeElepsed}ms (< 3000ms)`);
-                    console.log(`Sending error event to client`);
+                if (timeElapsed < 1 * 1000) {
+                    console.warn(`Rate limit exceeded for user ${user.email}. Time elapsed: ${timeElapsed}ms`);
                     socket.emit('server:error', { error: 'Rate limit exceeded. Please wait before making another change.' });
                     return;
                 }
             }
-            rateLimitMap.set(socket.id, Date.now());
-            console.log(`Rate limit time set for ${socket.id}`);
+            rateLimitMap.set(rateLimitKey, Date.now());
+            console.log(`Rate limit time set for ${rateLimitKey}`);
 
             state.checkboxes[data.index] = data.checked;
 
             await RedisClient.set(CHECKBOX_STATE_KEY, JSON.stringify(state.checkboxes));
-            io.emit('server:checkbox:update', { id: socket.id, ...data });
+            io.emit('server:checkbox:update', { id: socket.id, userId: user.id, ...data });
 
-            publisher.publish('internal-server:checkbox:changes', JSON.stringify({ id: socket.id, ...data }));
+            publisher.publish('internal-server:checkbox:changes', JSON.stringify({ id: socket.id, userId: user.id, ...data }));
         });
+
+        // Emit current user info to socket
+        socket.emit('server:user-info', { authenticated: !!user, user: user || null });
     });
 
 
     // Express handlers
     app.use(express.static(path.resolve('./public')));
+    app.use(express.json());
+
+    // Auth routes
+    app.use('/auth', authRoutes);
 
     app.get('/health', (req, res) => {
         res.json({ healthy: true });
     });
-    app.get('/checkboxes', async (req, res) => {
+
+    // Protected endpoint - only authenticated users
+    app.get('/checkboxes', isAuthenticated, async (req, res) => {
         const existingState = await RedisClient.get(CHECKBOX_STATE_KEY);
         if (existingState) {
             const remotedata = JSON.parse(existingState);
             res.json({ checkboxes: remotedata });
         } else {
             res.json({ checkboxes: state.checkboxes });
+        }
+    });
+
+    // Public endpoint - read-only for anonymous users
+    app.get('/api/checkboxes/view', async (req, res) => {
+        const existingState = await RedisClient.get(CHECKBOX_STATE_KEY);
+        if (existingState) {
+            const remotedata = JSON.parse(existingState);
+            res.json({ checkboxes: remotedata, readOnly: !req.isAuthenticated?.() });
+        } else {
+            res.json({ checkboxes: state.checkboxes, readOnly: !req.isAuthenticated?.() });
         }
     });
 
