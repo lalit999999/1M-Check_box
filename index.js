@@ -3,7 +3,7 @@ import http from 'node:http';
 import path from 'node:path';
 import express from 'express';
 import { Server } from 'socket.io';
-import { publisher, subscriber, RedisClient } from './redish/redis-connection.js';
+import { publisher, subscriber, RedisClient } from './API/redish/redis-connection.js';
 import { sessionMiddleware } from './API/config/session.js';
 import passport from './API/config/passport.js';
 import authRoutes from './API/auth/routes.js';
@@ -41,17 +41,29 @@ async function main() {
 
     // Middleware for socket.io to share sessions
     io.use((socket, next) => {
-        sessionMiddleware(socket.request, socket.request.res || {}, next);
+        sessionMiddleware(socket.request, socket.request.res || {}, (err) => {
+            if (err) return next(err);
+
+            passport.initialize()(socket.request, socket.request.res || {}, (err2) => {
+                if (err2) return next(err2);
+
+                passport.session()(socket.request, socket.request.res || {}, next);
+            });
+        });
     });
-    await subscriber.subscribe('internal-server:checkbox:changes');
-    subscriber.on('message', (channel, message) => {
-        if (channel === 'internal-server:checkbox:changes') {
-            const data = JSON.parse(message);
-            console.log(`Received checkbox change from Redis:`, data);
-            state.checkboxes[data.index] = data.checked;
-            io.emit('server:checkbox:update', { id: data.id, ...data });
-        }
-    });
+    try {
+        await subscriber.subscribe('internal-server:checkbox:changes');
+        subscriber.on('message', (channel, message) => {
+            if (channel === 'internal-server:checkbox:changes') {
+                const data = JSON.parse(message);
+                console.log(`Received checkbox change from Redis:`, data);
+                state.checkboxes[data.index] = data.checked;
+                io.emit('server:checkbox:update', { id: data.id, ...data });
+            }
+        });
+    } catch (err) {
+        console.warn('Redis subscriber.subscribe failed, continuing without pub/sub:', err && err.message ? err.message : err);
+    }
     io.on('connection', (socket) => {
         const user = socket.request.user;
         console.log(`Socket connected`, { id: socket.id, authenticated: !!user, userId: user?.id });
@@ -85,10 +97,19 @@ async function main() {
 
             state.checkboxes[data.index] = data.checked;
 
-            await RedisClient.set(CHECKBOX_STATE_KEY, JSON.stringify(state.checkboxes));
+            try {
+                await RedisClient.set(CHECKBOX_STATE_KEY, JSON.stringify(state.checkboxes));
+            } catch (err) {
+                console.warn('Failed to persist checkbox state to Redis:', err && err.message ? err.message : err);
+            }
+
             io.emit('server:checkbox:update', { id: socket.id, userId: user.id, ...data });
 
-            publisher.publish('internal-server:checkbox:changes', JSON.stringify({ id: socket.id, userId: user.id, ...data }));
+            try {
+                publisher.publish('internal-server:checkbox:changes', JSON.stringify({ id: socket.id, userId: user.id, ...data }));
+            } catch (err) {
+                console.warn('Failed to publish checkbox change to Redis pub/sub:', err && err.message ? err.message : err);
+            }
         });
 
         // Emit current user info to socket

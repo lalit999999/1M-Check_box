@@ -57,6 +57,10 @@ socket.on("server:user-info", (data) => {
     isAuthenticated = data.authenticated;
     userData = data.user;
     console.log(`Socket user info:`, data);
+
+    if (!isAuthenticated) {
+        console.warn("Socket did not receive an authenticated user. Checkbox edits will be blocked.");
+    }
 });
 
 // Socket event: connection
