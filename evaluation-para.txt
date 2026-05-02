@@ -1,42 +1,4 @@
 
-Card background
-1 Million Checkboxes
-
-Web Dev Cohort 2026
-
-Full Stack
-Timeline
-Start: Apr 29, 2026, 11:00 AM
-Due: May 3, 2026, 11:59 PM
-Eval Begins: May 4, 2026, 12:30 AM
-Eval Ends: May 6, 2026, 11:59 PM
-Instructions
-
-In this project, you have to build a real-time web application where users can interact with a large grid of checkboxes.
-
-The core idea is inspired by the “1 Million Checkboxes” concept, but here you will build it from scratch using your own backend, WebSocket layer, Redis coordination and custom rate limiting.
-
-The frontend can be built using:
-
-    HTML
-
-    CSS
-
-    JavaScript
-
-The backend must be built using:
-
-    Node.js
-
-    Express
-
-    WebSockets
-
-    Redis
-
-Your application should allow users to see a large number of checkboxes and toggle them. When one user changes the state of a checkbox, the change should be reflected for other connected users in real time using WebSockets.
-
-You also need to think about scale. This is not just about rendering checkboxes on screen. You should think about how the backend handles many users, how socket connections are managed, how checkbox state is stored, and how updates are broadcast efficiently.
 
 Your system should include:
 
@@ -206,7 +168,3 @@ Make sure the project runs properly before submission. Broken setup, missing .en
 
 
 
-// i have to build a beutifull login UI for this project. 
-using html css js 
-with project infomation and login with google button.
-with deceloper information and project description.

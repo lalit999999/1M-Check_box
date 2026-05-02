@@ -7,16 +7,15 @@ import { publisher, subscriber, RedisClient } from './API/redish/redis-connectio
 import { sessionMiddleware } from './API/config/session.js';
 import passport from './API/config/passport.js';
 import authRoutes from './API/auth/routes.js';
-import { isAuthenticated } from './API/auth/middleware.js';
+import { getSocketUser, isAuthenticated, requireSocketAuth, isSocketReadOnly } from './API/auth/middleware.js';
+import { updateSessionActivity } from './API/config/sessionManager.js';
+import { checkSocketRateLimit, rateLimitMiddleware } from './API/config/rateLimiter.js';
 
 const CHECKBOX_COUNT = 100;
 const CHECKBOX_STATE_KEY = 'checkbox-state';
 const state = {
     checkboxes: Array(CHECKBOX_COUNT).fill(false),
 }
-
-// rate limiting 
-const rateLimitMap = new Map();
 
 async function main() {
 
@@ -51,6 +50,11 @@ async function main() {
             });
         });
     });
+
+    // Reject unauthenticated websocket connections before they can subscribe to
+    // the checkbox channel.
+    io.use(requireSocketAuth);
+
     try {
         await subscriber.subscribe('internal-server:checkbox:changes');
         subscriber.on('message', (channel, message) => {
@@ -65,35 +69,48 @@ async function main() {
         console.warn('Redis subscriber.subscribe failed, continuing without pub/sub:', err && err.message ? err.message : err);
     }
     io.on('connection', (socket) => {
-        const user = socket.request.user;
-        console.log(`Socket connected`, { id: socket.id, authenticated: !!user, userId: user?.id });
+        const user = getSocketUser(socket);
+        const isReadOnly = isSocketReadOnly(socket);
+        const sessionId = socket.request.sessionID;
+
+        console.log(`Socket connected`, {
+            id: socket.id,
+            authenticated: !!user,
+            userId: user?.id,
+            email: user?.email,
+            sessionId: sessionId,
+            readOnly: isReadOnly
+        });
 
         // Check authentication for WebSocket events
         socket.on('client:checkbox:change', async (data) => {
             // Only authenticated users can change checkboxes
-            if (!user) {
-                socket.emit('server:error', { error: 'You must be logged in to modify checkboxes.' });
+            if (isReadOnly || !user) {
+                socket.emit('server:error', {
+                    error: isReadOnly
+                        ? 'Read-only mode: Please login to modify checkboxes.'
+                        : 'You must be logged in to modify checkboxes.'
+                });
                 return;
+            }
+
+            // Track session activity
+            if (sessionId) {
+                await updateSessionActivity(sessionId);
             }
 
             console.log(`Received checkbox change from user ${user.email} (socket: ${socket.id}):`, data);
 
-            const rateLimitKey = `rate-limit:${user.id}`;
-            const lastOperationTime = rateLimitMap.get(rateLimitKey);
-            console.log(`Last operation time for ${rateLimitKey}:`, lastOperationTime);
-
-            if (lastOperationTime) {
-                const timeElapsed = Date.now() - lastOperationTime;
-                console.log(`Time elapsed: ${timeElapsed}ms`);
-
-                if (timeElapsed < 1 * 1000) {
-                    console.warn(`Rate limit exceeded for user ${user.email}. Time elapsed: ${timeElapsed}ms`);
-                    socket.emit('server:error', { error: 'Rate limit exceeded. Please wait before making another change.' });
-                    return;
-                }
+            // Check Redis-based rate limit
+            const rateLimitResult = await checkSocketRateLimit(socket, 'checkbox_update');
+            if (!rateLimitResult.allowed) {
+                console.warn(`Rate limit exceeded for user ${user.email}. Reset in ${rateLimitResult.resetIn}s`);
+                socket.emit('server:error', {
+                    error: `Rate limit exceeded. Please wait ${rateLimitResult.resetIn} seconds.`,
+                    resetIn: rateLimitResult.resetIn
+                });
+                return;
             }
-            rateLimitMap.set(rateLimitKey, Date.now());
-            console.log(`Rate limit time set for ${rateLimitKey}`);
 
             state.checkboxes[data.index] = data.checked;
 
@@ -112,8 +129,12 @@ async function main() {
             }
         });
 
-        // Emit current user info to socket
-        socket.emit('server:user-info', { authenticated: !!user, user: user || null });
+        // Emit current user info to socket including read-only status
+        socket.emit('server:user-info', {
+            authenticated: !!user,
+            isReadOnly: isReadOnly,
+            user: user || null
+        });
     });
 
 
@@ -128,8 +149,8 @@ async function main() {
         res.json({ healthy: true });
     });
 
-    // Protected endpoint - only authenticated users
-    app.get('/checkboxes', isAuthenticated, async (req, res) => {
+    // Protected endpoint - only authenticated users with rate limiting
+    app.get('/checkboxes', rateLimitMiddleware('http_api'), isAuthenticated, async (req, res) => {
         const existingState = await RedisClient.get(CHECKBOX_STATE_KEY);
         if (existingState) {
             const remotedata = JSON.parse(existingState);
@@ -139,8 +160,8 @@ async function main() {
         }
     });
 
-    // Public endpoint - read-only for anonymous users
-    app.get('/api/checkboxes/view', async (req, res) => {
+    // Public endpoint - read-only for anonymous users with rate limiting
+    app.get('/api/checkboxes/view', rateLimitMiddleware('http_api'), async (req, res) => {
         const existingState = await RedisClient.get(CHECKBOX_STATE_KEY);
         if (existingState) {
             const remotedata = JSON.parse(existingState);

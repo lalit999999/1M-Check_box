@@ -289,37 +289,92 @@ input[type="checkbox"]:checked:hover {
 
 /* Responsive Design - Tablet (1024px and below) */
 @media (max-width: 1024px) {
-    body {
-        padding: 30px 15px;
+    .readonly-banner-content {
+        font-size: 13px;
+        gap: 10px;
     }
 
-    h1 {
-        margin-bottom: 35px;
+    .readonly-icon {
+        font-size: 16px;
+    }
+}
+
+@media (max-width: 768px) {
+    .readonly-banner {
+        padding: 10px 16px;
     }
 
-    .main-wrapper {
-        flex-direction: column;
-        gap: 20px;
-        margin-bottom: 30px;
+    .readonly-banner-content {
+        font-size: 12px;
+        gap: 8px;
     }
 
-    #container {
+    .readonly-icon {
+        font-size: 15px;
+    }
+}
+
+@media (max-width: 480px) {
+    .readonly-banner {
+        padding: 8px 12px;
+    }
+
+    .readonly-banner-content {
+        font-size: 11px;
+        gap: 6px;
+    }
+
+    .readonly-icon {
+        font-size: 14px;
+    }
+
+    .readonly-text {
         flex: 1;
-        padding: 40px;
-        gap: 18px;
+    }
+}
+
+@media (max-width: 320px) {
+    .readonly-banner {
+        padding: 6px 10px;
     }
 
-    #project-summary {
-        flex: 1;
-        max-height: none;
-        padding: 25px;
+    .readonly-banner-content {
+        font-size: 10px;
+        gap: 4px;
     }
 
-    #timer-display {
-        font-size: 20px;
-        padding: 10px 18px;
-        min-width: 110px;
+    .readonly-icon {
+        font-size: 12px;
     }
+}
+
+h1 {
+    margin-bottom: 35px;
+}
+
+.main-wrapper {
+    flex-direction: column;
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+#container {
+    flex: 1;
+    padding: 40px;
+    gap: 18px;
+}
+
+#project-summary {
+    flex: 1;
+    max-height: none;
+    padding: 25px;
+}
+
+#timer-display {
+    font-size: 20px;
+    padding: 10px 18px;
+    min-width: 110px;
+}
 }
 
 /* Responsive Design - Tablet (768px and below) */
@@ -762,6 +817,78 @@ input[type="checkbox"]:checked:hover {
     .error-alert-message {
         font-size: 11px;
     }
+}
+
+/* Read-Only Banner Styles */
+.readonly-banner {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(135deg, #2d5016 0%, #4a7c2f 100%);
+    border-bottom: 2px solid #7fb541;
+    padding: 12px 20px;
+    z-index: 1001;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+    from {
+        transform: translateY(-100%);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.readonly-banner-content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    font-size: 14px;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.readonly-icon {
+    font-size: 18px;
+}
+
+.readonly-text {
+    color: #e8f5e9;
+}
+
+.readonly-text a {
+    color: #fff;
+    font-weight: 600;
+    text-decoration: none;
+    border-bottom: 1px solid #fff;
+    transition: opacity 0.2s ease;
+    cursor: pointer;
+}
+
+.readonly-text a:hover {
+    opacity: 0.8;
+}
+
+/* Read-Only Checkbox Styling */
+input[type="checkbox"]:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+    filter: grayscale(100%);
+}
+
+input[type="checkbox"]:disabled:hover {
+    transform: none;
+}
+
+.checkbox-readonly {
+    background-color: rgba(155, 155, 155, 0.1);
 }
 
 /* Authentication Styles */

@@ -3,6 +3,7 @@ const container = document.getElementById("container");
 const checkboxe_count = 100;
 
 let isAuthenticated = false;
+let isReadOnly = false;
 let userData = null;
 
 // Function to show error alert UI
@@ -36,6 +37,19 @@ function showErrorAlert(message) {
     }, 5000);
 }
 
+// Function to show read-only mode banner
+function showReadOnlyBanner() {
+    const banner = document.createElement("div");
+    banner.className = "readonly-banner";
+    banner.innerHTML = `
+        <div class="readonly-banner-content">
+            <span class="readonly-icon">🔒</span>
+            <span class="readonly-text">You are viewing in <strong>Read-Only Mode</strong>. <a href="/login.html">Login</a> to modify checkboxes.</span>
+        </div>
+    `;
+    document.body.insertBefore(banner, document.body.firstChild);
+}
+
 // Socket event: server error
 socket.on("server:error", (data) => {
     const errorMessage = data.error;
@@ -52,14 +66,16 @@ socket.on("server:checkbox:update", (data) => {
     }
 });
 
-// Socket event: user info
+// Socket event: user info - tells us if we're in read-only mode
 socket.on("server:user-info", (data) => {
     isAuthenticated = data.authenticated;
+    isReadOnly = data.isReadOnly;
     userData = data.user;
     console.log(`Socket user info:`, data);
 
-    if (!isAuthenticated) {
-        console.warn("Socket did not receive an authenticated user. Checkbox edits will be blocked.");
+    if (isReadOnly) {
+        console.warn("Socket connected in READ-ONLY mode. Checkbox edits will be blocked.");
+        showReadOnlyBanner();
     }
 });
 
@@ -88,14 +104,16 @@ window.addEventListener("load", async () => {
     }
 
     try {
-        // Use the protected endpoint since user must be authenticated
-        const response = await fetch("/checkboxes", { method: "GET" });
+        // Try authenticated endpoint first, fall back to public endpoint
+        let response = await fetch("/checkboxes", { method: "GET" });
+
+        // If 401, user is not authenticated - use the public read-only endpoint
+        if (response.status === 401) {
+            console.log("Not authenticated, using public read-only endpoint");
+            response = await fetch("/api/checkboxes/view", { method: "GET" });
+        }
 
         if (!response.ok) {
-            if (response.status === 401) {
-                showErrorAlert("You must be logged in to view checkboxes");
-                return;
-            }
             throw new Error(`HTTP error! status: ${response.status}`);
         }
 
@@ -109,24 +127,31 @@ window.addEventListener("load", async () => {
                 container.appendChild(checkbox);
                 checkbox.checked = serverData;
 
-                checkbox.addEventListener("change", (event) => {
-                    // Check if user is authenticated before sending
-                    if (!isAuthenticated) {
-                        showErrorAlert("You must be logged in to modify checkboxes");
-                        // Revert the checkbox
-                        event.target.checked = !event.target.checked;
-                        return;
-                    }
+                // Disable checkbox if in read-only mode, otherwise attach change listener
+                if (isReadOnly) {
+                    checkbox.disabled = true;
+                    checkbox.classList.add('checkbox-readonly');
+                    checkbox.title = 'Login to modify';
+                } else {
+                    checkbox.addEventListener("change", (event) => {
+                        // Check if user is authenticated before sending
+                        if (!isAuthenticated) {
+                            showErrorAlert("You must be logged in to modify checkboxes");
+                            // Revert the checkbox
+                            event.target.checked = !event.target.checked;
+                            return;
+                        }
 
-                    const isChecked = event.target.checked;
-                    console.log(
-                        `Checkbox ${index} is now ${isChecked ? "checked" : "unchecked"}`,
-                    );
-                    socket.emit("client:checkbox:change", {
-                        index,
-                        checked: isChecked,
+                        const isChecked = event.target.checked;
+                        console.log(
+                            `Checkbox ${index} is now ${isChecked ? "checked" : "unchecked"}`,
+                        );
+                        socket.emit("client:checkbox:change", {
+                            index,
+                            checked: isChecked,
+                        });
                     });
-                });
+                }
             });
         }
     } catch (error) {
